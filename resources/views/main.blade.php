@@ -127,9 +127,42 @@
 
             <v-dialog
                 v-model="dialog_delete"
-                width="800"
+                width="400"
             >
+                <v-card>
+                    <v-card-title class="text-h5 grey lighten-2">
+                        Удаление данных
+                    </v-card-title>
 
+                    <v-divider></v-divider>
+                    <v-card-text>
+                        Вы точно уверены?
+                    </v-card-text>
+                    <v-card-actions>
+                        <v-spacer></v-spacer>
+
+                        <v-divider></v-divider>
+
+                        <v-btn
+                            color="primary"
+                            text
+                            icon @click="DeleteData"
+                        >
+                            удалить
+                        </v-btn>
+
+                        <v-spacer></v-spacer>
+
+
+                        <v-btn
+                            color="primary"
+                            text
+                            @click="dialog_delete = false"
+                        >
+                            Отмена
+                        </v-btn>
+                    </v-card-actions>
+                </v-card>
             </v-dialog>
         </v-app>
     </div>
@@ -186,12 +219,15 @@
                     console.log(this.item)
                     this.dialog_change=true
                 },
-                ChangeData(){
+                ChangeData(){//Изменение данных
 
                 },
                 ShowDialogDelete(item){//диалог на удаление
                     console.log(this.item)
                     this.dialog_delete=true
+                },
+                DeleteData(){//удаление данных
+
                 },
             },
 
