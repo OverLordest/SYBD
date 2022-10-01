@@ -36,6 +36,101 @@
                     </template>
                 </v-data-table>
             </v-main>
+
+            <v-dialog
+            v-model="dialog_change"
+            width="300"
+            >
+                <v-card>
+                    <v-card-title class="text-h5 grey lighten-2">
+                    Изменение данных
+                    </v-card-title>
+                    <v-divider></v-divider>
+                    <v-card-actions>
+                        <v-column>
+                            <v-col
+                                cols="auto"
+                                sm="50"
+                                md="10"
+                            >
+                                <v-text-field
+                                    v-model="Kod"
+                                    label="Код"
+                                    class="mx4">
+                                </v-text-field>
+                            </v-col>
+                            <v-col
+                                ccols="auto"
+                                sm="50"
+                                md="10"
+                            >
+                                <v-text-field
+                                    v-model="Exec_data"
+                                    label="Дата погошения"
+                                    class="mx4">
+
+                                </v-text-field>
+                            </v-col>
+                            <v-col
+                                cols="auto"
+                                sm="50"
+                                md="10"
+                            >
+                                <v-text-field
+                                    v-model="Torg_date"
+                                    label="Дата торгов"
+                                    class="mx4">
+
+                                </v-text-field>
+                            </v-col>
+                            <v-col
+                                cols="auto"
+                                sm="50"
+                                md="10"
+                            >
+                                <v-text-field
+                                    v-model="Quotation"
+                                    label="Максимальная цена"
+                                    class="mx4">
+
+                                </v-text-field>
+                            </v-col>
+                            <v-col
+                                cols="auto"
+                                sm="50"
+                                md="10"
+                            >
+                                <v-row>
+                                <v-text-field
+                                    v-model="Num_contr"
+                                    label="Кол-во продаж"
+                                    class="mx4">
+                                </v-text-field>
+                                <v-btn
+                                    color="primary"
+                                    text
+                                    @click="ChangeData"
+                                >
+                                    Изменить
+                                </v-btn>
+                                </v-row>
+                            </v-col>
+
+                        </v-column>
+
+
+
+
+                    </v-card-actions>
+                </v-card>
+            </v-dialog>
+
+            <v-dialog
+                v-model="dialog_delete"
+                width="800"
+            >
+
+            </v-dialog>
         </v-app>
     </div>
 
@@ -54,6 +149,11 @@
                     dialog_change: false,//диалог на изменение
                     dialog_delete: false,//диалог на удаление
                     search: '',//поиск
+                    Kod:'',
+                    Exec_data:'',
+                    Torg_date:'',
+                    Quotation:'',
+                    Num_contr:'',
                     headers: [
                         {
                             text: 'Код фьючерса',
@@ -85,6 +185,9 @@
                 ShowDialogChange(item){//диалог на измение
                     console.log(this.item)
                     this.dialog_change=true
+                },
+                ChangeData(){
+
                 },
                 ShowDialogDelete(item){//диалог на удаление
                     console.log(this.item)
