@@ -211,9 +211,9 @@
                 }
             },
             methods:{
-                ShowUnitedTable(){//Запрос на данные из таблиц
+                 ShowUnitedTable(){//Запрос на данные из таблиц
                     this.show_tables_info_ = []
-                    fetch('ShowUnitedTable',{
+                     fetch('ShowUnitedTable',{
                         method: 'GET',
                         headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')}
                     })
@@ -231,11 +231,6 @@
                     this.Quotation=Number(item.quotation)
                     this.Num_contr=Number(item.num_contr)
                     this.item=item
-                    console.log('item:',this.item)
-                    console.log('this.Torg_date',typeof this.Torg_date)
-                    console.log('this.Kod',typeof this.Kod)
-                    console.log('this.Quotation',typeof this.Quotation)
-                    console.log('this.Num_contr',typeof this.Num_contr)
                     this.dialog_change=true
                 },
                 ChangeData(){//Изменение данных
@@ -244,7 +239,6 @@
                     data.append('torg_date',this.Torg_date)
                     data.append('quotation',this.Quotation)
                     data.append('num_contr',this.Num_contr)
-                    console.log('Data:',data)
                     fetch('ChangeData',{
                         method:'post',
                         headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
@@ -257,14 +251,12 @@
                     this.Kod=item.kod
                     this.Torg_date= item.torg_date
                     this.item=item
-                    console.log(this.item)
                     this.dialog_delete=true
                 },
                 DeleteData(){//удаление данных
                     let data=new FormData()
                     data.append('kod',this.Kod)
                     data.append('torg_date',this.Torg_date)
-                    console.log('Data:',data)
                     fetch('DeleteData',{
                         method:'post',
                         headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
