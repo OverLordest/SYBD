@@ -39,7 +39,7 @@
 
             <v-dialog
             v-model="dialog_change"
-            width="300"
+            width="400"
             >
                 <v-card>
                     <v-card-title class="text-h5 grey lighten-2">
@@ -47,7 +47,7 @@
                     </v-card-title>
                     <v-divider></v-divider>
                     <v-card-actions>
-                        <v-column>
+                        <v-col>
                             <v-col
                                 cols="auto"
                                 sm="50"
@@ -56,7 +56,8 @@
                                 <v-text-field
                                     v-model="Kod"
                                     label="Код"
-                                    class="mx4">
+                                    class="mx4"
+                                    disabled>
                                 </v-text-field>
                             </v-col>
                             <v-col
@@ -67,7 +68,8 @@
                                 <v-text-field
                                     v-model="Exec_data"
                                     label="Дата погошения"
-                                    class="mx4">
+                                    class="mx4"
+                                disabled>
 
                                 </v-text-field>
                             </v-col>
@@ -79,7 +81,8 @@
                                 <v-text-field
                                     v-model="Torg_date"
                                     label="Дата торгов"
-                                    class="mx4">
+                                    class="mx4"
+                                    disabled>
 
                                 </v-text-field>
                             </v-col>
@@ -106,20 +109,26 @@
                                     label="Кол-во продаж"
                                     class="mx4">
                                 </v-text-field>
-                                <v-btn
-                                    color="primary"
-                                    text
-                                    @click="ChangeData"
-                                >
-                                    Изменить
-                                </v-btn>
+                                    <v-col>
+                                        <v-btn
+                                            color="primary"
+                                            text
+                                            @click="ChangeData"
+                                        >
+                                            Изменить
+                                        </v-btn>
+                                        <v-btn
+                                            color="primary"
+                                            text
+                                            @click="dialog_change = false"
+                                        >
+                                            Отмена
+                                        </v-btn>
+                                    </v-col>
                                 </v-row>
                             </v-col>
 
-                        </v-column>
-
-
-
+                        </v-col>
 
                     </v-card-actions>
                 </v-card>
@@ -216,18 +225,53 @@
                         })
                 },
                 ShowDialogChange(item){//диалог на измение
-                    console.log(this.item)
+                    this.Kod=item.kod
+                    this.Exec_data=item.exec_data
+                    this.Torg_date= item.torg_date
+                    this.Quotation=Number(item.quotation)
+                    this.Num_contr=Number(item.num_contr)
+                    this.item=item
+                    console.log('item:',this.item)
+                    console.log('this.Torg_date',typeof this.Torg_date)
+                    console.log('this.Kod',typeof this.Kod)
+                    console.log('this.Quotation',typeof this.Quotation)
+                    console.log('this.Num_contr',typeof this.Num_contr)
                     this.dialog_change=true
                 },
                 ChangeData(){//Изменение данных
-
+                    let data=new FormData()
+                    data.append('kod',this.Kod)
+                    data.append('torg_date',this.Torg_date)
+                    data.append('quotation',this.Quotation)
+                    data.append('num_contr',this.Num_contr)
+                    console.log('Data:',data)
+                    fetch('ChangeData',{
+                        method:'post',
+                        headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
+                        body:data
+                    })
+                    this.ShowUnitedTable();
+                    this.dialog_change=false;
                 },
                 ShowDialogDelete(item){//диалог на удаление
+                    this.Kod=item.kod
+                    this.Torg_date= item.torg_date
+                    this.item=item
                     console.log(this.item)
                     this.dialog_delete=true
                 },
                 DeleteData(){//удаление данных
-
+                    let data=new FormData()
+                    data.append('kod',this.Kod)
+                    data.append('torg_date',this.Torg_date)
+                    console.log('Data:',data)
+                    fetch('DeleteData',{
+                        method:'post',
+                        headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
+                        body:data
+                    })
+                    this.ShowUnitedTable();
+                    this.dialog_delete=false;
                 },
             },
 

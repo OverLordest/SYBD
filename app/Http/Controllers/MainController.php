@@ -1,7 +1,6 @@
 <?php
 
 namespace App\Http\Controllers;
-
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -18,4 +17,22 @@ class MainController extends Controller
         INNER JOIN dataisp ON dataisp.kod = F_usd.kod");
         return json_encode($query);
     }
+    public function ChangeData(Request $request){/*Функция изменения данных*/
+        $K=$request->input('kod');
+        $TD=$request->input('torg_date');
+        $Q=$request->input('quotation');
+        $NC=$request->input('num_contr');
+        DB::update('update F_usd set quotation = ? , num_contr = ?
+             where kod = ? and torg_date=?',
+            [$Q , $NC , $K,$TD]);
+    }
+    public function DeleteData(Request $request){/*Функция удаления данных*/
+        $K=$request->input('kod');
+        $TD=$request->input('torg_date');
+        //Carbon::parse($TD)->format('Y M d');
+        //$TD = strtotime('1995-08-15');
+        //$K='FUSD_08_95';
+        DB::delete("delete from [F_usd] where kod = '".$K."' and torg_date='".$TD."'");
+    }
 }
+

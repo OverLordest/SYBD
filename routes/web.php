@@ -15,3 +15,5 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', 'MainController@main');
 Route::get('/ShowUnitedTable', 'MainController@ShowUnitedTable','ShowUnitedTable');
+Route::post('/ChangeData','MainController@ChangeData','ChangeData');
+Route::post('/DeleteData','MainController@DeleteData','DeleteData');
