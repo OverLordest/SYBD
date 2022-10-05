@@ -34,5 +34,15 @@ class MainController extends Controller
         //$K='FUSD_08_95';
         DB::delete("delete from [F_usd] where kod = '".$K."' and torg_date='".$TD."'");
     }
+    public function AddData(Request $request){/*Функция удаления данных*/
+        $K=$request->input('kod');
+        $TD=$request->input('torg_date');
+        $Q=$request->input('quotation');
+        $NC=$request->input('num_contr');
+        //$ED=$request->input('exec_data');//сделать только код
+        DB::insert('insert into F_usd (kod,torg_date,quotation,num_contr)
+        values(?,?,?,?)',
+        [$K,$TD,$Q,$NC]);
+    }
 }
 

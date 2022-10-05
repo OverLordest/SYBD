@@ -7,34 +7,66 @@
     <div id="MainPage">
         <v-app>
             <v-main>
-                <v-data-table
-                    :headers="headers"
-                    :items="show_tables_info"
-                    class="elevation-1"
-                    :search="search">
-                    <template v-slot:top>
-                    <v-text-field
-                        v-model="search"
-                        label="Поиск"
-                        class="mx-4"
-                    >
-                    </v-text-field>
-                    </template>
-                    <template
-                        v-slot:item._actions="{ item }">
+                <v-card>
+                    <v-card-text>
+                        <v-data-table
+                            :headers="headers"
+                            :items="show_tables_info"
+                            class="elevation-1"
+                            :search="search">
+                            <template v-slot:top>
+                                <v-text-field
+                                    v-model="search"
+                                    label="Поиск"
+                                    class="mx-4"
+                                >
+                                </v-text-field>
+                            </template>
+                            <template
+                                v-slot:item._actions="{ item }">
+                                <v-btn
+                                    icon @click = "ShowDialogChange(item)">
+                                    <v-icon>
+                                        mdi-pencil
+                                    </v-icon>
+                                </v-btn>
+                                <v-btn icon @click = "ShowDialogDelete(item)">
+                                    <v-icon>
+                                        mdi-delete
+                                    </v-icon>
+                                </v-btn>
+                            </template>
+                            <!--<template v-slot:footer.page-text>
+                                <v-btn
+                                    color="primary"
+                                    dark
+                                    class="ma-2"
+                                    @click="buttonCallback">
+                                    Button
+                                </v-btn>
+                            </template>-->
+
+                        </v-data-table>
+
+                    </v-card-text>
+
+                    <v-card-actions>
                         <v-btn
-                            icon @click = "ShowDialogChange(item)">
+                            block
+                            depressed
+                            class="transparent font-weight-bold grey--text pa-2 d-flex align-center"
+                            icon @click="ShowDialogAdd()"
+                        >
                             <v-icon>
-                                mdi-pencil
+                                mdi-plus
                             </v-icon>
+                            <span>
+                                Добавить запсиь
+                            </span>
                         </v-btn>
-                        <v-btn icon @click = "ShowDialogDelete(item)">
-                            <v-icon>
-                                mdi-delete
-                            </v-icon>
-                        </v-btn>
-                    </template>
-                </v-data-table>
+                    </v-card-actions>
+
+                </v-card>
             </v-main>
 
             <v-dialog
@@ -173,6 +205,103 @@
                     </v-card-actions>
                 </v-card>
             </v-dialog>
+            <v-dialog
+                v-model="dialog_add"
+                width="400">
+                <v-card>
+                    <v-card-title class="text-h5 grey lighten-2">
+                        Изменение данных
+                    </v-card-title>
+                    <v-divider></v-divider>
+                    <v-card-actions>
+                        <v-col>
+                            <v-col
+                                cols="auto"
+                                sm="50"
+                                md="10"
+                            >
+                                <v-text-field
+                                    v-model="Kod"
+                                    label="Код"
+                                    class="mx4"
+                                    >
+                                </v-text-field>
+                            </v-col>
+                            <!--<v-col
+                                ccols="auto"
+                                sm="50"
+                                md="10"
+                            >
+                                <v-text-field
+                                    v-model="Exec_data"
+                                    label="Дата погошения"
+                                    class="mx4"
+                                    >
+
+                                </v-text-field>
+                            </v-col>-->
+                            <v-col
+                                cols="auto"
+                                sm="50"
+                                md="10"
+                            >
+                                <v-text-field
+                                    v-model="Torg_date"
+                                    label="Дата торгов"
+                                    class="mx4"
+                                    >
+
+                                </v-text-field>
+                            </v-col>
+                            <v-col
+                                cols="auto"
+                                sm="50"
+                                md="10"
+                            >
+                                <v-text-field
+                                    v-model="Quotation"
+                                    label="Максимальная цена"
+                                    class="mx4">
+
+                                </v-text-field>
+                            </v-col>
+                            <v-col
+                                cols="auto"
+                                sm="50"
+                                md="10"
+                            >
+                                <v-row>
+                                    <v-text-field
+                                        v-model="Num_contr"
+                                        label="Кол-во продаж"
+                                        class="mx4">
+                                    </v-text-field>
+                                    <v-col>
+                                        <v-btn
+                                            color="primary"
+                                            text
+                                            @click="AddData()"
+                                        >
+                                            Добавить
+                                        </v-btn>
+                                        <v-btn
+                                            color="primary"
+                                            text
+                                            @click="dialog_add = false"
+                                        >
+                                            Отмена
+                                        </v-btn>
+                                    </v-col>
+                                </v-row>
+                            </v-col>
+
+                        </v-col>
+
+                    </v-card-actions>
+                </v-card>
+
+
+            </v-dialog>
         </v-app>
     </div>
 
@@ -190,6 +319,7 @@
                     show_tables_info:[],//информация в таблице
                     dialog_change: false,//диалог на изменение
                     dialog_delete: false,//диалог на удаление
+                    dialog_add: false,//диалог на добаление
                     search: '',//поиск
                     Kod:'',
                     Exec_data:'',
@@ -211,9 +341,9 @@
                 }
             },
             methods:{
-                 ShowUnitedTable(){//Запрос на данные из таблиц
+                 async ShowUnitedTable(){//Запрос на данные из таблиц
                     this.show_tables_info_ = []
-                     fetch('ShowUnitedTable',{
+                     await fetch('ShowUnitedTable',{
                         method: 'GET',
                         headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')}
                     })
@@ -224,6 +354,14 @@
                             this.show_tables_info = data
                         })
                 },
+                ShowDialogAdd(){/*Диалог на добаление*/
+                        this.Kod=''
+                        this.Exec_data=''
+                        this.Torg_date=''
+                        this.Quotation=''
+                        this.Num_contr=''
+                    this.dialog_add=true
+                },
                 ShowDialogChange(item){//диалог на измение
                     this.Kod=item.kod
                     this.Exec_data=item.exec_data
@@ -232,6 +370,12 @@
                     this.Num_contr=Number(item.num_contr)
                     this.item=item
                     this.dialog_change=true
+                },
+                ShowDialogDelete(item){//диалог на удаление
+                    this.Kod=item.kod
+                    this.Torg_date= item.torg_date
+                    this.item=item
+                    this.dialog_delete=true
                 },
                 ChangeData(){//Изменение данных
                     let data=new FormData()
@@ -247,12 +391,6 @@
                     this.ShowUnitedTable();
                     this.dialog_change=false;
                 },
-                ShowDialogDelete(item){//диалог на удаление
-                    this.Kod=item.kod
-                    this.Torg_date= item.torg_date
-                    this.item=item
-                    this.dialog_delete=true
-                },
                 DeleteData(){//удаление данных
                     let data=new FormData()
                     data.append('kod',this.Kod)
@@ -264,6 +402,21 @@
                     })
                     this.ShowUnitedTable();
                     this.dialog_delete=false;
+                },
+                AddData(){
+                    let data=new FormData()
+                    data.append('kod','FUSD_'+this.Kod)
+                    //data.append('exec_data',this.Exec_data)//Убрать только код сделать
+                    data.append('torg_date',this.Torg_date)
+                    data.append('quotation',this.Quotation)
+                    data.append('num_contr',this.Num_contr)
+                    fetch('AddData',{
+                        method:'post',
+                        headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
+                        body:data
+                    })
+                    this.ShowUnitedTable();
+                    this.dialog_add=false;
                 },
             },
 
