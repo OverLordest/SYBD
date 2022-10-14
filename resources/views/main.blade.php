@@ -210,7 +210,7 @@
                 width="400">
                 <v-card>
                     <v-card-title class="text-h5 grey lighten-2">
-                        Изменение данных
+                        Добавление данных
                     </v-card-title>
                     <v-divider></v-divider>
                     <v-card-actions>
@@ -280,7 +280,7 @@
                                         <v-btn
                                             color="primary"
                                             text
-                                            @click="AddData()"
+                                            @click="AddData_()"
                                         >
                                             Добавить
                                         </v-btn>
@@ -288,6 +288,61 @@
                                             color="primary"
                                             text
                                             @click="dialog_add = false"
+                                        >
+                                            Отмена
+                                        </v-btn>
+                                    </v-col>
+                                </v-row>
+                            </v-col>
+
+                        </v-col>
+
+                    </v-card-actions>
+                </v-card>
+
+
+            </v-dialog>
+            <v-dialog
+                v-model="dialog_add_f"
+                width="400">
+                <v-card>
+                    <v-card-title class="text-h5 grey lighten-2">
+                        Фьючерс не найден
+                    </v-card-title>
+                    <v-divider></v-divider>
+                    <v-card-actions>
+                        <v-col>
+                            <v-col
+                                cols="auto"
+                                sm="50"
+                                md="20"
+                            >
+                                    Вы хотите добавить этот фьючерс?
+                            </v-col>
+                        <v-col>
+                            <v-col
+                                cols="auto"
+                                sm="50"
+                                md="10"
+                            >
+                                <v-text-field
+                                    v-model="Kod"
+                                    label="Код"
+                                    class="mx4"
+                                >
+                                </v-text-field>
+                            </v-col>
+                                        <v-btn
+                                            color="primary"
+                                            text
+                                            @click="AddDataF()"
+                                        >
+                                            Добавить
+                                        </v-btn>
+                                        <v-btn
+                                            color="primary"
+                                            text
+                                            @click="dialog_add_f = false"
                                         >
                                             Отмена
                                         </v-btn>
@@ -316,10 +371,12 @@
                 return{
                     //selected:[],
                     //show_tables_info_:[],
+                    answer:[],
                     show_tables_info:[],//информация в таблице
                     dialog_change: false,//диалог на изменение
                     dialog_delete: false,//диалог на удаление
                     dialog_add: false,//диалог на добаление
+                    dialog_add_f: false,//диалог на добавление фьючерса
                     search: '',//поиск
                     Kod:'',
                     Exec_data:'',
@@ -355,11 +412,11 @@
                         })
                 },
                 ShowDialogAdd(){/*Диалог на добаление*/
-                        this.Kod=''
+                        this.Kod='FUSD_'
                         this.Exec_data=''
-                        this.Torg_date=''
-                        this.Quotation=''
-                        this.Num_contr=''
+                        this.Torg_date='199'
+                        this.Quotation='111111'
+                        this.Num_contr='111111'
                     this.dialog_add=true
                 },
                 ShowDialogChange(item){//диалог на измение
@@ -403,10 +460,35 @@
                     this.ShowUnitedTable();
                     this.dialog_delete=false;
                 },
-                AddData(){
+                AddData_(){//добавление данных проверка кода
                     let data=new FormData()
-                    data.append('kod','FUSD_'+this.Kod)
-                    //data.append('exec_data',this.Exec_data)//Убрать только код сделать
+                    data.append('kod',this.Kod)
+                    fetch('KodCheck',{
+                        method:'post',
+                        headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
+                        body:data
+                    })
+                        .then((response)=>{
+                            return response.json()
+                        })
+                        .then((data)=>{
+                            this.answer = data
+                            console.log('Ответ:',this.answer)
+                        })
+                    if (this.answer!=0)
+                    {
+                        console.log('Ответ:',this.answer)
+                        this.AddData()
+                    }
+                    else
+                    {
+                        this.dialog_add_f=true
+                    }
+                },
+                AddData(){//добавление данных
+                    let data=new FormData()
+                    data.append('kod',this.Kod)
+                    data.append('kod',this.Kod)
                     data.append('torg_date',this.Torg_date)
                     data.append('quotation',this.Quotation)
                     data.append('num_contr',this.Num_contr)
@@ -417,6 +499,20 @@
                     })
                     this.ShowUnitedTable();
                     this.dialog_add=false;
+                },
+                AddDataF(){//добавление фьючерса
+                    var ed1=this.Kod.substr(this.Kod.length-2)
+                    var ed2=this.Kod.substring(5,7)
+                    this.Exec_data='19'+ed1+'-'+ed2+'-15'
+                    let data=new FormData()
+                    data.append('kod',this.Kod)
+                    data.append('exec_data',this.Exec_data)
+                    fetch('AddDataF',{
+                        method:'post',
+                        headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
+                        body:data
+                    })
+                    this.dialog_add_f=false;
                 },
             },
 

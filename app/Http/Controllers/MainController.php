@@ -17,6 +17,23 @@ class MainController extends Controller
         INNER JOIN dataisp ON dataisp.kod = F_usd.kod");
         return json_encode($query);
     }
+    public function KodCheck(Request $request){/*функция проверки существования кода*/
+        $request->input('kod');
+        $count=DB::select("SELECT Count(*)
+    FROM dataisp
+    Where kod='".$request."'");
+        if ($count==0)
+        {
+            $answer=0;
+            return json_encode($answer);
+        }
+        else
+        {
+            $answer=1;
+            return json_encode($answer);
+        }
+
+    }
     public function ChangeData(Request $request){/*Функция изменения данных*/
         $K=$request->input('kod');
         $TD=$request->input('torg_date');
@@ -34,7 +51,7 @@ class MainController extends Controller
         //$K='FUSD_08_95';
         DB::delete("delete from [F_usd] where kod = '".$K."' and torg_date='".$TD."'");
     }
-    public function AddData(Request $request){/*Функция удаления данных*/
+    public function AddData(Request $request){/*Функция добавления данных*/
         $K=$request->input('kod');
         $TD=$request->input('torg_date');
         $Q=$request->input('quotation');
@@ -43,6 +60,13 @@ class MainController extends Controller
         DB::insert('insert into F_usd (kod,torg_date,quotation,num_contr)
         values(?,?,?,?)',
         [$K,$TD,$Q,$NC]);
+    }
+    public function AddDataF(Request $request){/*Функция добавления фьючерса*/
+        $K=$request->input('kod');
+        $ED=$request->input('exec_data');
+        DB::insert('insert into dataisp (kod,exec_data)
+        values(?,?)',
+            [$K,$ED]);
     }
 }
 
