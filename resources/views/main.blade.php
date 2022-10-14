@@ -207,76 +207,74 @@
             </v-dialog>
             <v-dialog
                 v-model="dialog_add"
-                width="400">
+                width="300">
                 <v-card>
                     <v-card-title class="text-h5 grey lighten-2">
                         Добавление данных
                     </v-card-title>
-                    <v-divider></v-divider>
-                    <v-card-actions>
-                        <v-col>
-                            <v-col
-                                cols="auto"
-                                sm="50"
-                                md="10"
+                    <v-container>
+                        <v-row>
+                            <!--<v-col
+                                cols="12"
+                                sm="3"
                             >
                                 <v-text-field
-                                    v-model="Kod"
+                                    v-model="Kod1"
                                     label="Код"
                                     class="mx4"
-                                    >
+                                    readonly>
                                 </v-text-field>
-                            </v-col>
-                            <!--<v-col
-                                ccols="auto"
-                                sm="50"
-                                md="10"
-                            >
-                                <v-text-field
-                                    v-model="Exec_data"
-                                    label="Дата погошения"
-                                    class="mx4"
-                                    >
+                        </v-col>-->
 
-                                </v-text-field>
-                            </v-col>-->
-                            <v-col
-                                cols="auto"
-                                sm="50"
-                                md="10"
-                            >
-                                <v-text-field
-                                    v-model="Torg_date"
-                                    label="Дата торгов"
-                                    class="mx4"
-                                    >
+                        <v-col
+                            cols="12"
+                            sm="10"
+                        >
+                            <v-text-field
+                                v-model="Kod"
+                                label="Код"
+                                class="mx4">
+                            </v-text-field>
 
-                                </v-text-field>
-                            </v-col>
-                            <v-col
-                                cols="auto"
-                                sm="50"
-                                md="10"
-                            >
-                                <v-text-field
-                                    v-model="Quotation"
-                                    label="Максимальная цена"
-                                    class="mx4">
+                        </v-col>
+                        </v-row>
+                    </v-container>
+                    <v-col
+                        cols="auto"
+                        sm="10"
+                    >
+                        <v-text-field
+                            v-model="Torg_date"
+                            label="Дата торгов"
+                            class="mx4"
+                        >
 
-                                </v-text-field>
-                            </v-col>
-                            <v-col
-                                cols="auto"
-                                sm="50"
-                                md="10"
-                            >
-                                <v-row>
-                                    <v-text-field
-                                        v-model="Num_contr"
-                                        label="Кол-во продаж"
-                                        class="mx4">
-                                    </v-text-field>
-                                    <v-col>
+                        </v-text-field>
+                    </v-col>
+                    <v-col
+                        cols="auto"
+                        sm="10"
+                    >
+                        <v-text-field
+                            v-model="Quotation"
+                            label="Максимальная цена"
+                            class="mx4">
+
+                        </v-text-field>
+                    </v-col>
+                    <v-col
+                        cols="auto"
+                        sm="10"
+                    >
+
+                            <v-text-field
+                                v-model="Num_contr"
+                                label="Кол-во продаж"
+                                class="mx4">
+                            </v-text-field>
+                    </v-col>
+                    <v-card-actions>
+
                                         <v-btn
                                             color="primary"
                                             text
@@ -291,16 +289,12 @@
                                         >
                                             Отмена
                                         </v-btn>
-                                    </v-col>
-                                </v-row>
-                            </v-col>
 
-                        </v-col>
 
                     </v-card-actions>
+
+
                 </v-card>
-
-
             </v-dialog>
             <v-dialog
                 v-model="dialog_add_f"
@@ -379,6 +373,7 @@
                     dialog_add_f: false,//диалог на добавление фьючерса
                     search: '',//поиск
                     Kod:'',
+                    //Kod1:'FUSD_',
                     Exec_data:'',
                     Torg_date:'',
                     Quotation:'',
@@ -415,8 +410,8 @@
                         this.Kod='FUSD_'
                         this.Exec_data=''
                         this.Torg_date='199'
-                        this.Quotation='111111'
-                        this.Num_contr='111111'
+                        this.Quotation=''
+                        this.Num_contr=''
                     this.dialog_add=true
                 },
                 ShowDialogChange(item){//диалог на измение
@@ -461,8 +456,11 @@
                     this.dialog_delete=false;
                 },
                 AddData_(){//добавление данных проверка кода
+
+                    //console.log('Kod1',this.Kod1)
+                    console.log('Kod',this.Kod)
                     let data=new FormData()
-                    data.append('kod',this.Kod)
+                    data.append('kod',this.Kod1+this.Kod)
                     fetch('KodCheck',{
                         method:'post',
                         headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
