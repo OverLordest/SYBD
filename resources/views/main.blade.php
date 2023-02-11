@@ -1,524 +1,428 @@
-@extends('sample')
+<?php
 
-@section('title')Главная страница@endsection
+namespace App\Http\Controllers;
 
-@section('content')
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xls;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use Illuminate\Support\Facades\Response;
 
-    <div id="MainPage">
-        <v-app>
-            <v-main>
-                <v-card>
-                    <v-card-text>
-                        <v-data-table
-                            :headers="headers"
-                            :items="show_tables_info"
-                            class="elevation-1"
-                            :search="search">
-                            <template v-slot:top>
-                                <v-text-field
-                                    v-model="search"
-                                    label="Поиск"
-                                    class="mx-4"
-                                >
-                                </v-text-field>
-                            </template>
-                            <template
-                                v-slot:item._actions="{ item }">
-                                <v-btn
-                                    icon @click = "ShowDialogChange(item)">
-                                    <v-icon>
-                                        mdi-pencil
-                                    </v-icon>
-                                </v-btn>
-                                <v-btn icon @click = "ShowDialogDelete(item)">
-                                    <v-icon>
-                                        mdi-delete
-                                    </v-icon>
-                                </v-btn>
-                            </template>
-                            <!--<template v-slot:footer.page-text>
-                                <v-btn
-                                    color="primary"
-                                    dark
-                                    class="ma-2"
-                                    @click="buttonCallback">
-                                    Button
-                                </v-btn>
-                            </template>-->
+class MainController extends Controller
+{
+    public function main() {/*функция возврата на главную*/
+        return view('main');
+    }
 
-                        </v-data-table>
+    public function ShowUnitedTable(){/*функция получения данных из 2х таблц*/
+        $query = DB::select("
+        select torg_date,kod,REPLACE(quotation, ',', '.') as quotation,num_contr,exec_data,
+               REPLACE(ISNULL(LOG(quotation/EndDate),0), ',', '.') as Xk
+        from(
+        select torg_date,F_usd.kod,quotation,num_contr,exec_data, Lag(CAST(quotation AS float), 2)
+        OVER(PARTITION BY F_usd.kod ORDER BY torg_date ASC) AS EndDate
+        FROM F_usd
+        inner join dataisp on dataisp.kod = F_usd.kod
+        where CAST(quotation AS float) > 0
+        ) as temp");
+        return json_encode($query);
+    }
 
-                    </v-card-text>
+    public function KodCheck(Request $request){/*функция проверки существования кода*/
+        $request->input('kod');
+        $count=DB::select("SELECT Count(*)
+    FROM dataisp
+    Where kod='".$request."'");
+        if ($count==0)
+        {
+            $answer=0;
+            return json_encode($answer);
+        }
+        else
+        {
+            $answer=1;
+            return json_encode($answer);
+        }
 
-                    <v-card-actions>
-                        <v-btn
-                            block
-                            depressed
-                            class="transparent font-weight-bold grey--text pa-2 d-flex align-center"
-                            icon @click="ShowDialogAdd()"
-                        >
-                            <v-icon>
-                                mdi-plus
-                            </v-icon>
-                            <span>
-                                Добавить запсиь
-                            </span>
-                        </v-btn>
-                    </v-card-actions>
+    }
+    public function ChangeData(Request $request){/*Функция изменения данных*/
+        $K=$request->input('kod');
+        $TD=$request->input('torg_date');
+        $Q=$request->input('quotation');
+        $NC=$request->input('num_contr');
+        DB::update('update F_usd set quotation = ? , num_contr = ?
+             where kod = ? and torg_date=?',
+            [$Q , $NC , $K,$TD]);
+    }
+    public function DeleteData(Request $request){/*Функция удаления данных*/
+        $K=$request->input('kod');
+        $TD=$request->input('torg_date');
+        //Carbon::parse($TD)->format('Y M d');
+        //$TD = strtotime('1995-08-15');
+        //$K='FUSD_08_95';
+        DB::delete("delete from [F_usd] where kod = '".$K."' and torg_date='".$TD."'");
+    }
+    public function AddData(Request $request){/*Функция добавления данных*/
+        $K=$request->input('kod');
+        $TD=$request->input('torg_date');
+        $Q=$request->input('quotation');
+        $NC=$request->input('num_contr');
+        //$ED=$request->input('exec_data');//сделать только код
+        DB::insert('insert into F_usd (kod,torg_date,quotation,num_contr)
+        values(?,?,?,?)',
+        [$K,$TD,$Q,$NC]);
+    }
+    public function AddDataF(Request $request){/*Функция добавления фьючерса*/
+        $K=$request->input('kod');
+        $ED=$request->input('exec_data');
+        DB::insert('insert into dataisp (kod,exec_data)
+        values(?,?)',
+            [$K,$ED]);
+    }
+    public function ExportReport(Request $request) /*Функция добавления фьючерса*/
+    {
+        $kod = $request->input('kod');
+        $date_torg_min = $request->input('date_torg_min');
+        $date_torg_max = $request->input('date_torg_max');
+        $price_min = $request->input('price_min');
+        $price_max = $request->input('price_max');
+        $numb_sales_min = $request->input('numb_sales_min');
+        $numb_sales_max = $request->input('numb_sales_max');
+        $filter_array [] = array("Код фьючерса", "Дата торгов от", "Дата торгов до", "Максимальная цена от", "Максимальная цена до", "Кол-во продаж от", "Кол-во продаж до");
+        $filter_array [] = array(
+            'Код фьючерса' => $kod,
+            'Дата торгов от' => $date_torg_min,
+            'Дата торгов до' => $date_torg_max,
+            'Максимальная цена от' => $price_min,
+            'Максимальная цена до' => $price_max,
+            'Кол-во продаж от' => $numb_sales_min,
+            'Кол-во продаж до' => $numb_sales_max);
+        $query = DB::select("
+        select MAX(kod) AS MAX_kod, MIN(kod) AS MIN_kod, MAX(quotation) AS MAX_quotation, MIN(quotation) AS MIN_quotation,MAX(num_contr) AS MAX_num_contr, MIN(num_contr) AS MIN_num_contr,MAX(torg_date) AS MAX_torg_date, MIN(torg_date) AS MIN_torg_date  FROM(
+        select torg_date,kod,REPLACE(quotation, ',', '.') as quotation,num_contr,exec_data,
+               REPLACE(LOG(quotation/EndDate), ',', '.') as Xk
+        from(
+        select torg_date,F_usd.kod,quotation,num_contr,exec_data, Lag(CAST(quotation AS float), 2)
+        OVER(PARTITION BY F_usd.kod ORDER BY torg_date ASC) AS EndDate
+        FROM F_usd
+        inner join dataisp on dataisp.kod = F_usd.kod
+        where CAST(quotation AS float) > 0
+        ) as temp
+        ) AS SSS
+        ");
+        if ($kod == ''){
+            $kod1 = $query[0]->MIN_kod;
+            $kod2 = $query[0]->MAX_kod;
+        }
+        else{
+            $kod1 = $kod;
+            $kod2 = $kod;
+        }
+        if ($date_torg_min == ''){
+            $date_torg_min = $query[0]->MIN_torg_date;
+        }
+        if ($date_torg_max == ''){
+            $date_torg_max = $query[0]->MAX_torg_date;
+        }
+        if ($price_min == ''){
+            $price_min = $query[0]->MIN_quotation;
+        }
+        if ($price_max == ''){
+            $price_max = $query[0]->MAX_quotation;
+        }
+        if ($numb_sales_min == ''){
+            $numb_sales_min = $query[0]->MIN_num_contr;
+        }
+        if ($numb_sales_max == ''){
+            $numb_sales_max = $query[0]->MAX_num_contr;
+        }
+        $data = DB::select("
+        select torg_date,kod,REPLACE(quotation, ',', '.') as quotation,num_contr,exec_data,
+               REPLACE(LOG(quotation/EndDate), ',', '.') as Xk
+        from(
+        select torg_date,F_usd.kod,quotation,num_contr,exec_data, Lag(CAST(quotation AS float), 2)
+        OVER(PARTITION BY F_usd.kod ORDER BY torg_date ASC) AS EndDate
+        FROM F_usd
+        inner join dataisp on dataisp.kod = F_usd.kod
+        where CAST(quotation AS float) > 0
+        ) as temp
+        where kod >= '$kod1' and kod <= '$kod2' and torg_date >= '$date_torg_min' and torg_date <= '$date_torg_max' and quotation >= '$price_min' and quotation <= '$price_max' and num_contr >= '$numb_sales_min' and num_contr <= '$numb_sales_max'
+        ");
+        $data_array [] = array("Код фьючерса", "Дата погашения", "Дата торгов", "Максимальная цена", "Кол-во продаж", "Xk");
+        foreach ($data as $data_item) {
+            $data_array[] = array(
+                'Код фьючерса' => $data_item->kod,
+                'Дата погашения' => $data_item->exec_data,
+                'Дата торгов' => $data_item->torg_date,
+                'Максимальная цена' => $data_item->quotation,
+                'Кол-во продаж' => $data_item->num_contr,
+                'Xk' => $data_item->Xk
+            );
+        }
+        date_default_timezone_set('Europe/Moscow');
+        $date_ = date('m/d/Y h:i:s a', time());
+        $date_array [] = array("Дата формирования файла");
+        $date_array [] = array(
+            'Дата формирования файла' => $date_);
+        $this->ExportFunction($data_array,$filter_array,$date_array);
+    }
 
-                </v-card>
-            </v-main>
-
-            <v-dialog
-            v-model="dialog_change"
-            width="400"
-            >
-                <v-card>
-                    <v-card-title class="text-h5 grey lighten-2">
-                    Изменение данных
-                    </v-card-title>
-                    <v-divider></v-divider>
-                    <v-card-actions>
-                        <v-col>
-                            <v-col
-                                cols="auto"
-                                sm="50"
-                                md="10"
-                            >
-                                <v-text-field
-                                    v-model="Kod"
-                                    label="Код"
-                                    class="mx4"
-                                    disabled>
-                                </v-text-field>
-                            </v-col>
-                            <v-col
-                                ccols="auto"
-                                sm="50"
-                                md="10"
-                            >
-                                <v-text-field
-                                    v-model="Exec_data"
-                                    label="Дата погошения"
-                                    class="mx4"
-                                disabled>
-
-                                </v-text-field>
-                            </v-col>
-                            <v-col
-                                cols="auto"
-                                sm="50"
-                                md="10"
-                            >
-                                <v-text-field
-                                    v-model="Torg_date"
-                                    label="Дата торгов"
-                                    class="mx4"
-                                    disabled>
-
-                                </v-text-field>
-                            </v-col>
-                            <v-col
-                                cols="auto"
-                                sm="50"
-                                md="10"
-                            >
-                                <v-text-field
-                                    v-model="Quotation"
-                                    label="Максимальная цена"
-                                    class="mx4">
-
-                                </v-text-field>
-                            </v-col>
-                            <v-col
-                                cols="auto"
-                                sm="50"
-                                md="10"
-                            >
-                                <v-row>
-                                <v-text-field
-                                    v-model="Num_contr"
-                                    label="Кол-во продаж"
-                                    class="mx4">
-                                </v-text-field>
-                                    <v-col>
-                                        <v-btn
-                                            color="primary"
-                                            text
-                                            @click="ChangeData"
-                                        >
-                                            Изменить
-                                        </v-btn>
-                                        <v-btn
-                                            color="primary"
-                                            text
-                                            @click="dialog_change = false"
-                                        >
-                                            Отмена
-                                        </v-btn>
-                                    </v-col>
-                                </v-row>
-                            </v-col>
-
-                        </v-col>
-
-                    </v-card-actions>
-                </v-card>
-            </v-dialog>
-
-            <v-dialog
-                v-model="dialog_delete"
-                width="400"
-            >
-                <v-card>
-                    <v-card-title class="text-h5 grey lighten-2">
-                        Удаление данных
-                    </v-card-title>
-
-                    <v-divider></v-divider>
-                    <v-card-text>
-                        Вы точно уверены?
-                    </v-card-text>
-                    <v-card-actions>
-                        <v-spacer></v-spacer>
-
-                        <v-divider></v-divider>
-
-                        <v-btn
-                            color="primary"
-                            text
-                            icon @click="DeleteData"
-                        >
-                            удалить
-                        </v-btn>
-
-                        <v-spacer></v-spacer>
-
-
-                        <v-btn
-                            color="primary"
-                            text
-                            @click="dialog_delete = false"
-                        >
-                            Отмена
-                        </v-btn>
-                    </v-card-actions>
-                </v-card>
-            </v-dialog>
-            <v-dialog
-                v-model="dialog_add"
-                width="300">
-                <v-card>
-                    <v-card-title class="text-h5 grey lighten-2">
-                        Добавление данных
-                    </v-card-title>
-                    <v-container>
-                        <v-row>
-                            <!--<v-col
-                                cols="12"
-                                sm="3"
-                            >
-                                <v-text-field
-                                    v-model="Kod1"
-                                    label="Код"
-                                    class="mx4"
-                                    readonly>
-                                </v-text-field>
-                        </v-col>-->
-
-                        <v-col
-                            cols="12"
-                            sm="10"
-                        >
-                            <v-text-field
-                                v-model="Kod"
-                                label="Код"
-                                class="mx4">
-                            </v-text-field>
-
-                        </v-col>
-                        </v-row>
-                    </v-container>
-                    <v-col
-                        cols="auto"
-                        sm="10"
-                    >
-                        <v-text-field
-                            v-model="Torg_date"
-                            label="Дата торгов"
-                            class="mx4"
-                        >
-
-                        </v-text-field>
-                    </v-col>
-                    <v-col
-                        cols="auto"
-                        sm="10"
-                    >
-                        <v-text-field
-                            v-model="Quotation"
-                            label="Максимальная цена"
-                            class="mx4">
-
-                        </v-text-field>
-                    </v-col>
-                    <v-col
-                        cols="auto"
-                        sm="10"
-                    >
-
-                            <v-text-field
-                                v-model="Num_contr"
-                                label="Кол-во продаж"
-                                class="mx4">
-                            </v-text-field>
-                    </v-col>
-                    <v-card-actions>
-
-                                        <v-btn
-                                            color="primary"
-                                            text
-                                            @click="AddData_()"
-                                        >
-                                            Добавить
-                                        </v-btn>
-                                        <v-btn
-                                            color="primary"
-                                            text
-                                            @click="dialog_add = false"
-                                        >
-                                            Отмена
-                                        </v-btn>
+    public function ExportFunction($export_array,$export_filter,$date_array){
+        $spreadSheet = new Spreadsheet();
+        $spreadSheet->getActiveSheet()->mergeCells('A1:C1');
+        $spreadSheet->getActiveSheet()->mergeCells('A2:C2');
+        $spreadSheet->getActiveSheet()->mergeCells('A3:C3');
+        $spreadSheet->getActiveSheet()->mergeCells('A4:C4');
+        $spreadSheet->getActiveSheet()->mergeCells('A5:C5');
+        $spreadSheet->getActiveSheet()->mergeCells('A6:C6');
+        $spreadSheet->getActiveSheet()->mergeCells('A7:C7');
+        $spreadSheet->getActiveSheet()->mergeCells('A8:C8');
+        $spreadSheet->getActiveSheet()->mergeCells('D1:F1');
+        $spreadSheet->getActiveSheet()->mergeCells('D2:F2');
+        $spreadSheet->getActiveSheet()->mergeCells('D3:F3');
+        $spreadSheet->getActiveSheet()->mergeCells('D4:F4');
+        $spreadSheet->getActiveSheet()->mergeCells('D5:F5');
+        $spreadSheet->getActiveSheet()->mergeCells('D6:F6');
+        $spreadSheet->getActiveSheet()->mergeCells('D7:F7');
+        $spreadSheet->getActiveSheet()->mergeCells('D8:F8');
+        $spreadSheet->getActiveSheet()->getStyle('A1:F8')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $spreadSheet->getActiveSheet()->getStyle('A1:F8')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $borderStyleArray = array(
+            'borders' => array(
+                'outline' => array(
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => array('rgb' => '000000'),
+                ),
+                'horizontal' => array(
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => array('rgb' => '000000'),
+                ),
+                'vertical' => array(
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => array('rgb' => '000000'),
+                ),
+            ),
+        );
+        $spreadSheet->getActiveSheet()->getStyle('A1:F8')->applyFromArray($borderStyleArray);
+        $spreadSheet->getActiveSheet()->getStyle('A1:A8')
+            ->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()
+            ->setARGB('FFFF9000');
+        $spreadSheet->getActiveSheet()->getStyle('A1:A8')->getFont()->setBold(true);
+        $spreadSheet->getActiveSheet()->getStyle('A1:A8')->getAlignment()->setWrapText(true);
+        $spreadSheet->getActiveSheet()->getDefaultColumnDimension()->setWidth(14);
+        $export_filter_headers= array_values($export_filter)[0];
+        $i = 0;
+        foreach ($export_filter_headers as $key => $value) {
+            $export_filter_headers1[$i][0] = $value;
+            $i++;
+        }
+        $export_filter_inputs = array_values($export_filter)[1];
+        $i = 0;
+        foreach ($export_filter_inputs as $key => $value) {
+            $export_filter_inputs1[$i][0] = $value;
+            $i++;
+        }
 
 
-                    </v-card-actions>
+        $date_array_headers = array_values($date_array)[0];
+        $i = 0;
+        foreach ($date_array_headers as $key => $value) {
+            $date_array_headers1[$i][0] = $value;
+            $i++;
+        }
+        $date_array_inputs = array_values($date_array)[1];
+        $i = 0;
+        foreach ($date_array_inputs as $key => $value) {
+            $date_array_inputs1[$i][0] = $value;
+            $i++;
+        }
+        $spreadSheet->getActiveSheet()->fromArray($date_array,NULL,'A1');
+        $spreadSheet->getActiveSheet()->fromArray($date_array_headers1,NULL,'A1');
+        $spreadSheet->getActiveSheet()->fromArray($date_array_inputs1,NULL,'D1');
+        $spreadSheet->getActiveSheet()->fromArray($export_filter_headers1,NULL,'A2');
+        $spreadSheet->getActiveSheet()->fromArray($export_filter_inputs1,NULL,'D2');
+        $spreadSheet->getActiveSheet()->fromArray($export_array,NULL,'A9');
+        $highestRow = $spreadSheet->getActiveSheet()->getHighestDataRow();
+        $spreadSheet->getActiveSheet()->getStyle('A9:F'.$highestRow)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $spreadSheet->getActiveSheet()->getStyle('A1:F'.$highestRow)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $spreadSheet->getActiveSheet()->getStyle('A1:F'.$highestRow)->applyFromArray($borderStyleArray);
+        $spreadSheet->getActiveSheet()->getStyle('A9:F9')
+            ->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()
+            ->setARGB('FFFF9000');
+        $spreadSheet->getActiveSheet()->getStyle('A9:F9')->getFont()->setBold(true);
+        $spreadSheet->getActiveSheet()->getStyle('A9:F9')->getAlignment()->setWrapText(true);
+        $spreadSheet
+            ->getActiveSheet()
+            ->getStyle('A1:F'.$highestRow)
+            ->getBorders()
+            ->getOutline()
+            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM)
+            ->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('00000000'));
+        $Excel_writer = new Xls($spreadSheet);
+        $Excel_writer = new Xls($spreadSheet);
+        $Excel_writer->save('ExportedData.xls');
+        //$spreadSheet->createSheet();
+        //$spreadSheet->setActiveSheetIndex(0)->setTitle('Фильтры')->getDefaultColumnDimension()->setWidth(25);
+        //$spreadSheet->setActiveSheetIndex(0)->fromArray($export_filter);
+        //$spreadSheet->setActiveSheetIndex(1)->setTitle('Данные')->getDefaultColumnDimension()->setWidth(20);
+        //$spreadSheet->setActiveSheetIndex(1)->fromArray($export_array);
+        //$Excel_writer = new Xls($spreadSheet);
+        //$Excel_writer->save('ExportedData.xls');
+    }
+
+    public function GetDownload()
+    {
+        $file= public_path(). "/ExportedData.xls";
+
+        $headers = array(
+            'Content-Type: application/xls',
+        );
+        return Response::download($file, 'ExportedData.xls', $headers);
+    }
+
+    ////Экспорт статистики
+    public function ExportReportStats(Request $request)
+    {
+        $FUSD = $request->input('FUSD');
+        $Mx = $request->input('Mx');
+        $D = $request->input('D');
+        $V = $request->input('V');
+        $TrendMx = $request->input('TrendMx');
+        $TrendD = $request->input('TrendD');
+        $Date1 = $request->input('Date1');
+        $Date2 = $request->input('Date2');
+        $filter_array [] = array("Дата торгов от","Дата торгов до");
+        $filter_array [] = array(
+            'Дата торгов от' => $Date1,
+            'Дата торгов до' => $Date2
+        );
+        $explode_FUSD = explode(',', $FUSD);
+        $explode_Mx = explode(',', $Mx);
+        $explode_D = explode(',', $D);
+        $explode_V = explode(',', $V);
+        $explode_TrendMx = explode(',', $TrendMx);
+        $explode_TrendD = explode(',', $TrendD);
+        $data_array [] = array("FUSD", "Mx", "D", "V", "TrendMx", "TrendD");
+        for ($i = 0; $i < count($explode_FUSD); $i++) {
+            $data_array[] = array(
+                'FUSD' => $explode_FUSD[$i],
+                'Mx' => $explode_Mx[$i],
+                'D' => $explode_D[$i],
+                'V' => $explode_V[$i],
+                'TrendMx' => $explode_TrendMx[$i],
+                'TrendD' => $explode_TrendD[$i]
+            );
+        }
+        date_default_timezone_set('Europe/Moscow');
+        $date_ = date('m/d/Y h:i:s a', time());
+        $date_array [] = array("Дата формирования файла");
+        $date_array [] = array(
+            'Дата формирования файла' => $date_);
+        $this->ExportFunctionStats($data_array,$filter_array,$date_array);
+    }
+
+    public function ExportFunctionStats($export_array,$export_filter,$date_array){
+        $spreadSheet = new Spreadsheet();
+        $spreadSheet->getActiveSheet()->mergeCells('A1:C1');
+        $spreadSheet->getActiveSheet()->mergeCells('A2:C2');
+        $spreadSheet->getActiveSheet()->mergeCells('A3:C3');
+        $spreadSheet->getActiveSheet()->mergeCells('D1:F1');
+        $spreadSheet->getActiveSheet()->mergeCells('D2:F2');
+        $spreadSheet->getActiveSheet()->mergeCells('D3:F3');
+        $spreadSheet->getActiveSheet()->getStyle('A1:F3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $spreadSheet->getActiveSheet()->getStyle('A1:F3')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $borderStyleArray = array(
+            'borders' => array(
+                'outline' => array(
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => array('rgb' => '000000'),
+                ),
+                'horizontal' => array(
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => array('rgb' => '000000'),
+                ),
+                'vertical' => array(
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => array('rgb' => '000000'),
+                ),
+            ),
+        );
+        $spreadSheet->getActiveSheet()->getStyle('A1:F3')->applyFromArray($borderStyleArray);
+        $spreadSheet->getActiveSheet()->getStyle('A1:A3')
+            ->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()
+            ->setARGB('FFFF9000');
+        $spreadSheet->getActiveSheet()->getStyle('A1:A3')->getFont()->setBold(true);
+        $spreadSheet->getActiveSheet()->getStyle('A1:A3')->getAlignment()->setWrapText(true);
+        $spreadSheet->getActiveSheet()->getDefaultColumnDimension()->setWidth(14);
+        $export_filter_headers= array_values($export_filter)[0];
+        $i = 0;
+        foreach ($export_filter_headers as $key => $value) {
+            $export_filter_headers1[$i][0] = $value;
+            $i++;
+        }
+        $export_filter_inputs = array_values($export_filter)[1];
+        $i = 0;
+        foreach ($export_filter_inputs as $key => $value) {
+            $export_filter_inputs1[$i][0] = $value;
+            $i++;
+        }
 
 
-                </v-card>
-            </v-dialog>
-            <v-dialog
-                v-model="dialog_add_f"
-                width="400">
-                <v-card>
-                    <v-card-title class="text-h5 grey lighten-2">
-                        Фьючерс не найден
-                    </v-card-title>
-                    <v-divider></v-divider>
-                    <v-card-actions>
-                        <v-col>
-                            <v-col
-                                cols="auto"
-                                sm="50"
-                                md="20"
-                            >
-                                    Вы хотите добавить этот фьючерс?
-                            </v-col>
-                        <v-col>
-                            <v-col
-                                cols="auto"
-                                sm="50"
-                                md="10"
-                            >
-                                <v-text-field
-                                    v-model="Kod"
-                                    label="Код"
-                                    class="mx4"
-                                >
-                                </v-text-field>
-                            </v-col>
-                                        <v-btn
-                                            color="primary"
-                                            text
-                                            @click="AddDataF()"
-                                        >
-                                            Добавить
-                                        </v-btn>
-                                        <v-btn
-                                            color="primary"
-                                            text
-                                            @click="dialog_add_f = false"
-                                        >
-                                            Отмена
-                                        </v-btn>
-                                    </v-col>
-                                </v-row>
-                            </v-col>
+        $date_array_headers = array_values($date_array)[0];
+        $i = 0;
+        foreach ($date_array_headers as $key => $value) {
+            $date_array_headers1[$i][0] = $value;
+            $i++;
+        }
+        $date_array_inputs = array_values($date_array)[1];
+        $i = 0;
+        foreach ($date_array_inputs as $key => $value) {
+            $date_array_inputs1[$i][0] = $value;
+            $i++;
+        }
+        $spreadSheet->getActiveSheet()->fromArray($date_array,NULL,'A1');
+        $spreadSheet->getActiveSheet()->fromArray($date_array_headers1,NULL,'A1');
+        $spreadSheet->getActiveSheet()->fromArray($date_array_inputs1,NULL,'D1');
+        $spreadSheet->getActiveSheet()->fromArray($export_filter_headers1,NULL,'A2');
+        $spreadSheet->getActiveSheet()->fromArray($export_filter_inputs1,NULL,'D2');
+        $spreadSheet->getActiveSheet()->fromArray($export_array,NULL,'A4');
+        $highestRow = $spreadSheet->getActiveSheet()->getHighestDataRow();
+        $spreadSheet->getActiveSheet()->getStyle('A4:F'.$highestRow)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $spreadSheet->getActiveSheet()->getStyle('A4:F'.$highestRow)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $spreadSheet->getActiveSheet()->getStyle('A4:F'.$highestRow)->applyFromArray($borderStyleArray);
+        $spreadSheet->getActiveSheet()->getStyle('A4:F4')
+            ->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()
+            ->setARGB('FFFF9000');
+        $spreadSheet->getActiveSheet()->getStyle('A4:F4')->getFont()->setBold(true);
+        $spreadSheet->getActiveSheet()->getStyle('A4:F4')->getAlignment()->setWrapText(true);
+        $spreadSheet
+            ->getActiveSheet()
+            ->getStyle('A1:F'.$highestRow)
+            ->getBorders()
+            ->getOutline()
+            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM)
+            ->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('00000000'));
+        $Excel_writer = new Xls($spreadSheet);
+        $Excel_writer->save('ExportedDataStats.xls');
+    }
 
-                        </v-col>
+    public function GetDownloadStats()
+    {
+        $file= public_path(). "/ExportedDataStats.xls";
 
-                    </v-card-actions>
-                </v-card>
-
-
-            </v-dialog>
-        </v-app>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
-    <script>
-        new Vue({
-            el: '#MainPage',
-            vuetify: new Vuetify(),
-            data(){
-                return{
-                    //selected:[],
-                    //show_tables_info_:[],
-                    answer:[],
-                    show_tables_info:[],//информация в таблице
-                    dialog_change: false,//диалог на изменение
-                    dialog_delete: false,//диалог на удаление
-                    dialog_add: false,//диалог на добаление
-                    dialog_add_f: false,//диалог на добавление фьючерса
-                    search: '',//поиск
-                    Kod:'',
-                    //Kod1:'FUSD_',
-                    Exec_data:'',
-                    Torg_date:'',
-                    Quotation:'',
-                    Num_contr:'',
-                    headers: [
-                        {
-                            text: 'Код фьючерса',
-                            align: 'start',
-                            value: 'kod',
-                        },
-                        { text: 'Дата погашения', value: 'exec_data' },
-                        { text: 'Дата торгов', value: 'torg_date' },
-                        { text: 'Максимальная цена', value: 'quotation' },
-                        { text: 'Кол-во продаж', value: 'num_contr' },
-                        { text: 'Изменить/удалить', value: '_actions'},
-                    ],
-                }
-            },
-            methods:{
-                 async ShowUnitedTable(){//Запрос на данные из таблиц
-                    this.show_tables_info_ = []
-                     await fetch('ShowUnitedTable',{
-                        method: 'GET',
-                        headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')}
-                    })
-                        .then((response)=>{
-                            return response.json()
-                        })
-                        .then((data)=>{
-                            this.show_tables_info = data
-                        })
-                },
-                ShowDialogAdd(){/*Диалог на добаление*/
-                        this.Kod='FUSD_'
-                        this.Exec_data=''
-                        this.Torg_date='199'
-                        this.Quotation=''
-                        this.Num_contr=''
-                    this.dialog_add=true
-                },
-                ShowDialogChange(item){//диалог на измение
-                    this.Kod=item.kod
-                    this.Exec_data=item.exec_data
-                    this.Torg_date= item.torg_date
-                    this.Quotation=Number(item.quotation)
-                    this.Num_contr=Number(item.num_contr)
-                    this.item=item
-                    this.dialog_change=true
-                },
-                ShowDialogDelete(item){//диалог на удаление
-                    this.Kod=item.kod
-                    this.Torg_date= item.torg_date
-                    this.item=item
-                    this.dialog_delete=true
-                },
-                ChangeData(){//Изменение данных
-                    let data=new FormData()
-                    data.append('kod',this.Kod)
-                    data.append('torg_date',this.Torg_date)
-                    data.append('quotation',this.Quotation)
-                    data.append('num_contr',this.Num_contr)
-                    fetch('ChangeData',{
-                        method:'post',
-                        headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
-                        body:data
-                    })
-                    this.ShowUnitedTable();
-                    this.dialog_change=false;
-                },
-                DeleteData(){//удаление данных
-                    let data=new FormData()
-                    data.append('kod',this.Kod)
-                    data.append('torg_date',this.Torg_date)
-                    fetch('DeleteData',{
-                        method:'post',
-                        headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
-                        body:data
-                    })
-                    this.ShowUnitedTable();
-                    this.dialog_delete=false;
-                },
-                AddData_(){//добавление данных проверка кода
-
-                    //console.log('Kod1',this.Kod1)
-                    console.log('Kod',this.Kod)
-                    let data=new FormData()
-                    data.append('kod',this.Kod1+this.Kod)
-                    fetch('KodCheck',{
-                        method:'post',
-                        headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
-                        body:data
-                    })
-                        .then((response)=>{
-                            return response.json()
-                        })
-                        .then((data)=>{
-                            this.answer = data
-                            console.log('Ответ:',this.answer)
-                        })
-                    if (this.answer!=0)
-                    {
-                        console.log('Ответ:',this.answer)
-                        this.AddData()
-                    }
-                    else
-                    {
-                        this.dialog_add_f=true
-                    }
-                },
-                AddData(){//добавление данных
-                    let data=new FormData()
-                    data.append('kod',this.Kod)
-                    data.append('kod',this.Kod)
-                    data.append('torg_date',this.Torg_date)
-                    data.append('quotation',this.Quotation)
-                    data.append('num_contr',this.Num_contr)
-                    fetch('AddData',{
-                        method:'post',
-                        headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
-                        body:data
-                    })
-                    this.ShowUnitedTable();
-                    this.dialog_add=false;
-                },
-                AddDataF(){//добавление фьючерса
-                    var ed1=this.Kod.substr(this.Kod.length-2)
-                    var ed2=this.Kod.substring(5,7)
-                    this.Exec_data='19'+ed1+'-'+ed2+'-15'
-                    let data=new FormData()
-                    data.append('kod',this.Kod)
-                    data.append('exec_data',this.Exec_data)
-                    fetch('AddDataF',{
-                        method:'post',
-                        headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')},
-                        body:data
-                    })
-                    this.dialog_add_f=false;
-                },
-            },
-
-            mounted: function (){//предзапуск функций
-                this.ShowUnitedTable();
-
-            }
-        })
-    </script>
-
-@endsection
+        $headers = array(
+            'Content-Type: application/xls',
+        );
+        return Response::download($file, 'ExportedDataStats.xls', $headers);
+    }
+}
